@@ -1,11 +1,10 @@
-# CodePipeline
 resource "aws_codepipeline" "app_pipeline" {
   name     = "cap-1-pipeline"
   role_arn = aws_iam_role.codepipeline_role.arn
 
   artifact_store {
+    type = "S3"
     location = aws_s3_bucket.codepipeline_bucket.bucket
-    type     = "S3"
   }
 
   stage {
@@ -15,14 +14,13 @@ resource "aws_codepipeline" "app_pipeline" {
       name             = "Source"
       category         = "Source"
       owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
+      provider         = "CodeCommit"
       version          = "1"
       output_artifacts = ["source_output"]
 
       configuration = {
-        ConnectionArn = var.github_connection_arn
-        FullRepositoryId = var.github_repo
-        BranchName = "main"
+        RepositoryName = aws_codecommit_repository.code_repo.repository_name
+        BranchName     = "main"
       }
     }
   }
@@ -35,9 +33,9 @@ resource "aws_codepipeline" "app_pipeline" {
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
-      version          = "1"
       input_artifacts  = ["source_output"]
       output_artifacts = ["build_output"]
+      version          = "1"
 
       configuration = {
         ProjectName = aws_codebuild_project.app_build.name
@@ -49,16 +47,16 @@ resource "aws_codepipeline" "app_pipeline" {
     name = "Deploy"
 
     action {
-      name             = "Deploy"
-      category         = "Deploy"
-      owner            = "AWS"
-      provider         = "CodeDeploy"
-      version          = "1"
-      input_artifacts  = ["build_output"]
+      name            = "Deploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      input_artifacts = ["build_output"]
+      version         = "1"
 
       configuration = {
-        ApplicationName     = aws_codedeploy_app.web_app.name
-        DeploymentGroupName = aws_codedeploy_deployment_group.web_app_group.deployment_group_name
+        ApplicationName     = aws_codedeploy_app.deployment_app.name
+        DeploymentGroupName = aws_codedeploy_deployment_group.deployment_group.deployment_group_name
       }
     }
   }
